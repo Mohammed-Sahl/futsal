@@ -1,125 +1,314 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:futsal/screen/rental.dart';
-import 'Mybooking.dart';
-import 'home1.dart';
+import 'package:futsaladmin/screen/rental.dart';
+import 'package:futsaladmin/screen/tournament_list.dart';
+import 'package:futsaladmin/screen/turf.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class HomePage extends StatefulWidget {
-  HomePage({Key key, this.title}) : super(key: key);
+import 'login.dart';
+import 'notification.dart';
+
+class MyHomePage extends StatefulWidget {
+  MyHomePage({Key key, this.title}) : super(key: key);
+
   final String title;
+
   @override
-  _HomePageState createState() => _HomePageState();
-}
-class PushNotification {
-  PushNotification({
-    this.title,
-    this.body,
-  });
-  String title;
-  String body;
+  _MyHomePageState createState() => _MyHomePageState();
 }
 
+class _MyHomePageState extends State<MyHomePage> {
 
-class _HomePageState extends State<HomePage> {
 
-  int _index = 0;
+  var slot;
+
+  final List categories = [
+    {"id":"1","name":"Turf Bookings", "icon":Icons.event},
+    {"id":"2","name":"Tournament Bookings", "icon":Icons.event_available},
+    {"id":"3","name":"Rental Bookings", "icon":Icons.list},
+    {"id":"4","name":"Live Scoring", "icon":Icons.score},
+    {"id":"5","name":"Notification Centre", "icon":Icons.notifications},
+    {"id":"6","name":"Logout", "icon":Icons.power_settings_new},
+  ];
+
+
+
+  getSlot(setState) async {
+    FirebaseFirestore.instance.collection('settings').doc('score_card').snapshots().listen((event) {
+      // print(dt);
+      setState(() {
+        slot = (event.data()['match']);
+        // total = {"jersey_m": dt['jersey_m'], "jersey_l": dt['jersey_l'], "shoes_l": dt['shoes_l'], "shoes_m": dt['shoes_m'], "jersey_s": dt['jersey_s'], "shoes_s": dt['shoes_s']};
+      });
+      print(slot[0]['team']);
+    });
+  }
+
 
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    getNotification();
-  }
-
-  // Notification Config
-  getNotification() async{
-    await Firebase.initializeApp();
-    FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      provisional: false,
-      sound: true,
-    );
-    print(settings.authorizationStatus);
-    print(AuthorizationStatus.authorized);
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('User granted permission');
-
-      // For handling the received notifications
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message){
-        print(message);
-      });
-      // FirebaseMessaging.onBackgroundMessage((message) => null)
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        // Parse the message received
-        print('Notification1111');
-        print(message.notification.title);
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            content: ListTile(
-              title: Text(message.notification.title, textAlign: TextAlign.center,style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),),
-              subtitle: Text(message.notification.body, textAlign: TextAlign.center,),
-            ),
-            actions: <Widget>[
-              FlatButton(
-                child: Text('Ok'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  print('hello');
-                },
-              ),
-            ],
-          ),
-        );
-        PushNotification notification = PushNotification(
-          title: message.notification?.title,
-          body: message.notification?.body,
-        );
-      });
-    } else {
-      print('User declined or has not accepted permission');
-    }
+    getSlot(setState);
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget child;
-    switch (_index) {
-      case 0:
-        child = Home1Page();
-        break;
-      case 1:
-        child = Rental();
-        break;
-      case 2:
-        child = MyBooking();
-        break;
-    }
     return Scaffold(
-      body: SizedBox.expand(child: child),
-      // backgroundColor: Colors.black87,
-      bottomNavigationBar: BottomNavigationBar(
-        onTap: (newIndex) => setState(() => _index = newIndex),
-        currentIndex: _index,
-        selectedItemColor: Colors.green[500],
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), title: Text("Home")),
-          BottomNavigationBarItem(icon: Icon(Icons.sports_football_rounded), title: Text("Rental Items")),
-          BottomNavigationBarItem(icon: Icon(Icons.history), title: Text("My Booking")),
-        ],
-      ),
       appBar: AppBar(
         backgroundColor: Colors.green[500],
-        title: Text(
-          "Hilltop Arena",
-          style: TextStyle(color: Colors.grey[100], fontSize: 24),
-        ),
+        title: Text('Dashboard'),
         centerTitle: true,
       ),
+      body: Center(
+        child: Container(
+          // height: 400,
+          child: CustomScrollView(
+            physics: BouncingScrollPhysics(),
+            slivers: <Widget>[
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 1.2,
+                        crossAxisSpacing: 10.0,
+                        mainAxisSpacing: 10.0
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      _buildCategoryItem,
+                      childCount: categories.length,
+
+                    )
+
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildCategoryItem(BuildContext context, int index) {
+    // var category = categories[index];
+    return MaterialButton(
+      elevation: 1.0,
+      highlightElevation: 1.0,
+
+      onPressed: () async {
+        if(categories[index]['id'] == '1'){
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => TurfPage()));
+        }
+        if(categories[index]['id'] == '2'){
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => TournamentListPage()));
+        }
+        if(categories[index]['id'] == '3'){
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RentalPage()));
+        }
+        if(categories[index]['id'] == '4'){
+          await DialogSetting(context);
+          // Navigator.push(
+          //     context,
+          //     MaterialPageRoute(builder: (context) => RentalPage()));
+        }
+        if(categories[index]['id'] == '5'){
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => NotificationPage()));
+        }
+        if(categories[index]['id'] == '6'){
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          prefs.clear();
+          Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (builder) => LoginPage(title: '')),
+                  (route) => false);
+        }
+      },
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      color: Colors.green,
+      textColor: Colors.white,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(categories[index]['icon'], size: 50,),
+          SizedBox(height: 5.0),
+          Text(
+            categories[index]['name'],
+            textAlign: TextAlign.center,
+            maxLines: 3,),
+        ],
+      ),
+    );
+  }
+
+
+  Future<void> DialogSetting(context) async {
+
+    var slot1 = [];
+
+    // print()
+    await getSlot(setState);
+    setState((){
+      slot1 = json.decode(json.encode(slot));
+    });
+
+
+    showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+              builder: (context, setState) {
+                // getSlot(setState);
+                return AlertDialog(
+                  actions: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        RaisedButton(
+                            child: Text('Apply'),
+                            color: Colors.green,
+                            textColor: Colors.white, // foreground
+                            onPressed: () async {
+                              if(slot1[0]['team'] == '' || slot1[0]['score'] == '' || slot1[1]['team'] == '' || slot1[1]['score'] == ''){
+
+                              }
+                              else{
+                                CollectionReference collectionsReference1 = FirebaseFirestore.instance.collection('settings');
+                                collectionsReference1.doc('score_card').update({"match": slot1});
+                                Navigator.pop(context);
+                              }
+                            }
+                        )
+                      ],
+                    ),
+                  ],
+                  contentPadding: EdgeInsets.all(10),
+                  title: new Text('Scoring'),
+                  content: Container(
+                    constraints: BoxConstraints(
+                        maxHeight: MediaQuery
+                            .of(context)
+                            .size
+                            .height * .5),
+                    // color: Colors.white,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Container(
+                                width: MediaQuery.of(context).size.width * 0.4,
+                                child: TextField(
+                                  onChanged: (val){
+                                    slot1[0]['team'] = val;
+                                  },
+                                  controller: TextEditingController(text: slot1[0]['team'].toString()),
+                                  decoration: InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      labelText: "Team 1",
+                                      labelStyle: TextStyle(color: Colors.black45)
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: MediaQuery.of(context).size.width * 0.15,
+                                child: TextField(
+                                  onChanged: (val){
+                                    slot1[0]['score'] = val;
+                                  },
+                                  controller: TextEditingController(text: slot1[0]['score'].toString()),
+                                  decoration: InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      labelText: "Score",
+                                      labelStyle: TextStyle(color: Colors.black45)
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 10,),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Container(
+                                width: MediaQuery.of(context).size.width * 0.4,
+                                child: TextField(
+                                  onChanged: (val){
+                                    slot1[1]['team'] = val;
+                                  },
+                                  controller: TextEditingController(text: slot1[1]['team'].toString()),
+                                  decoration: InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      labelText: "Team 2",
+                                      labelStyle: TextStyle(color: Colors.black45)
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: MediaQuery.of(context).size.width * 0.15,
+                                child: TextField(
+                                  onChanged: (val){
+                                    slot1[1]['score'] = val;
+                                  },
+                                  controller: TextEditingController(text: slot1[1]['score'].toString()),
+                                  decoration: InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(color: Colors.black45, width: 2.0),
+                                      ),
+                                      labelText: "Score",
+                                      labelStyle: TextStyle(color: Colors.black45)
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+          );
+        }
     );
   }
 }
